@@ -1,0 +1,6 @@
+
+{
+  "name": "OTA 升级管理平台",
+  "description": "企业级 OTA 平台，专注于大区校验、设备兼容性检查及发布前预检，确保升级任务的高成功率。",
+  "requestFramePermissions": []
+}
