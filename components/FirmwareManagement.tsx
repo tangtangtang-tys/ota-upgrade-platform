@@ -8,11 +8,17 @@ import {
   Trash2,
   Edit3,
   ExternalLink,
-  BellRing
+  BellRing,
+  FileCode,
+  CheckCircle2,
+  Clock,
+  ChevronRight,
+  Eye
 } from 'lucide-react';
 import { FirmwareIdentifier, FirmwareVersion, PromptMethod } from '../types';
 import { PublishConfirmModal } from './PublishConfirmModal';
 import { FirmwareFormModal } from './FirmwareFormModal';
+import { FirmwareDetailModal } from './FirmwareDetailModal';
 import { DingTalkApprovalMock } from './DingTalkApprovalMock';
 
 const INITIAL_FID_IDS: FirmwareIdentifier[] = [
@@ -25,10 +31,10 @@ const INITIAL_VERSIONS: FirmwareVersion[] = [
   {
     id: 'V1',
     versionNumber: '20.122.159.13',
-    downloadUrl: 'http://doraemon.camera666.com/firmware_20.122.159.13.bin',
+    downloadUrl: 'http://ota.cloud.com/fw_v13.bin',
     size: '1.02',
     promptMethod: PromptMethod.WEAK,
-    description: '核心功能优化，提升连接成功率',
+    description: '核心功能优化，提升弱网连接率',
     updateTime: '2026-06-01 12:06:06',
     isLatest: true,
     status: 'published'
@@ -36,10 +42,10 @@ const INITIAL_VERSIONS: FirmwareVersion[] = [
   {
     id: 'V2',
     versionNumber: '20.122.159.14',
-    downloadUrl: 'http://doraemon.camera666.com/firmware_20.122.159.14.bin',
+    downloadUrl: 'http://ota.cloud.com/fw_v14_test.bin',
     size: '1.05',
     promptMethod: PromptMethod.NONE,
-    description: '新增夜视增强模式预览',
+    description: '内部测试版本，修复已知Bug',
     updateTime: '2026-06-05 10:00:00',
     isLatest: false,
     status: 'draft'
@@ -47,35 +53,13 @@ const INITIAL_VERSIONS: FirmwareVersion[] = [
   {
     id: 'V3',
     versionNumber: '20.122.159.15',
-    downloadUrl: 'http://doraemon.camera666.com/firmware_20.122.159.15.bin',
+    downloadUrl: 'http://ota.cloud.com/fw_v15_alpha.bin',
     size: '1.08',
     promptMethod: PromptMethod.NONE,
-    description: '灰度测试版本，包含实验室功能',
+    description: 'Alpha测试版本，包含实验室功能',
     updateTime: '2026-06-10 15:30:00',
     isLatest: false,
     status: 'draft'
-  },
-  {
-    id: 'V4',
-    versionNumber: '20.122.159.12',
-    downloadUrl: 'http://doraemon.camera666.com/firmware_20.122.159.12.bin',
-    size: '0.98',
-    promptMethod: PromptMethod.NONE,
-    description: '常规维护更新',
-    updateTime: '2026-05-20 10:00:00',
-    isLatest: false,
-    status: 'published'
-  },
-  {
-    id: 'V5',
-    versionNumber: '20.122.159.11',
-    downloadUrl: 'http://doraemon.camera666.com/firmware_20.122.159.11.bin',
-    size: '1.01',
-    promptMethod: PromptMethod.STRONG,
-    description: '紧急修复音频丢包问题',
-    updateTime: '2026-05-10 09:00:00',
-    isLatest: false,
-    status: 'published'
   }
 ];
 
@@ -85,14 +69,15 @@ export const FirmwareManagement: React.FC = () => {
   const [versions, setVersions] = useState<FirmwareVersion[]>(INITIAL_VERSIONS);
   const [activeProductLine, setActiveProductLine] = useState<string>('IPC');
   
-  // Modals state
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [showFormModal, setShowFormModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDingTalkMock, setShowDingTalkMock] = useState(false);
   const [editingVersion, setEditingVersion] = useState<FirmwareVersion | null>(null);
+  const [detailVersion, setDetailVersion] = useState<FirmwareVersion | null>(null);
   const [pendingVersion, setPendingVersion] = useState<FirmwareVersion | null>(null);
 
-  const productLines = ['IPC', '车载', 'NVR', 'BK', 'AI玩具', '其他'];
+  const productLines = ['IPC', '车载', 'NVR', 'AI', 'IoT', '其他'];
 
   const latestVersion = useMemo(() => versions.find(v => v.isLatest), [versions]);
   const historyVersions = useMemo(() => versions.filter(v => !v.isLatest), [versions]);
@@ -107,15 +92,9 @@ export const FirmwareManagement: React.FC = () => {
     setShowFormModal(true);
   };
 
-  const handleEditVersion = (version: FirmwareVersion) => {
-    setEditingVersion(version);
-    setShowFormModal(true);
-  };
-
-  const handleDeleteVersion = (id: string) => {
-    if (confirm('确定要删除该固件版本吗？')) {
-      setVersions(versions.filter(v => v.id !== id));
-    }
+  const handleViewDetail = (version: FirmwareVersion) => {
+    setDetailVersion(version);
+    setShowDetailModal(true);
   };
 
   const handleFormSubmit = (data: Partial<FirmwareVersion>) => {
@@ -140,58 +119,47 @@ export const FirmwareManagement: React.FC = () => {
 
   const handleConfirmPublish = (promptMethod: PromptMethod) => {
     if (!pendingVersion) return;
-    
-    // Step 1: Update status to 'reviewing'
-    setVersions(versions.map(v => {
-      if (v.id === pendingVersion.id) {
-        return { ...v, status: 'reviewing', promptMethod };
-      }
-      return v;
-    }));
-
-    // Step 2: Show simulated DingTalk Notification
+    setVersions(versions.map(v => v.id === pendingVersion.id ? { ...v, status: 'reviewing', promptMethod } : v));
     setShowPublishModal(false);
-    setTimeout(() => {
-      setShowDingTalkMock(true);
-    }, 500);
+    setTimeout(() => setShowDingTalkMock(true), 500);
   };
 
   const handleFinalApprove = () => {
     if (!pendingVersion) return;
-
-    // Final update: previous latest becomes history, current becomes latest published
     setVersions(versions.map(v => {
-      if (v.id === pendingVersion.id) {
-        return { ...v, status: 'published', isLatest: true, updateTime: new Date().toLocaleString() };
-      }
+      if (v.id === pendingVersion.id) return { ...v, status: 'published', isLatest: true, updateTime: new Date().toLocaleString() };
       return { ...v, isLatest: false };
     }));
-    
     setShowDingTalkMock(false);
-    alert('审批通过！固件已完成线上发布。');
   };
 
-  const renderPromptTag = (method: PromptMethod) => {
-    switch (method) {
-      case PromptMethod.WEAK:
-        return <span className="px-2 py-0.5 bg-[#fdf6ec] text-[#e6a23c] text-[11px] rounded border border-[#faecd8]">弱提醒</span>;
-      case PromptMethod.STRONG:
-        return <span className="px-2 py-0.5 bg-[#fdf6ec] text-[#e6a23c] text-[11px] rounded border border-[#faecd8]">强提醒</span>;
-      case PromptMethod.MANDATORY:
-        return <span className="px-2 py-0.5 bg-[#fef0f0] text-[#f56c6c] text-[11px] rounded border border-[#fde2e2]">强制升级</span>;
+  const renderApprovalStatus = (status: 'published' | 'reviewing' | 'draft') => {
+    switch (status) {
+      case 'published':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 text-xs font-bold rounded-md border border-green-100">
+            <CheckCircle2 size={12} /> 已发布
+          </span>
+        );
+      case 'reviewing':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-md border border-blue-100 animate-pulse">
+            <Clock size={12} /> 审批中
+          </span>
+        );
       default:
-        return <span className="px-2 py-0.5 bg-[#f4f4f5] text-[#909399] text-[11px] rounded border border-[#e9e9eb]">不提醒</span>;
+        return <span className="text-gray-300 font-medium px-2.5">-</span>;
     }
   };
 
   return (
     <div className="flex h-full bg-white overflow-hidden">
-      {/* 1. 产品线 */}
-      <div className="w-48 border-r border-[#EBEEF5] flex flex-col">
-        <div className="p-4 border-b border-[#F5F7FA]">
+      {/* 1. 分类导航 */}
+      <div className="w-52 border-r border-gray-100 flex flex-col shrink-0">
+        <div className="p-4 border-b border-gray-50 bg-gray-50/20">
            <div className="relative">
-             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#C0C4CC]" size={14} />
-             <input type="text" placeholder="搜索分类" className="w-full pl-8 pr-3 py-2 bg-white border border-[#DCDFE6] rounded-lg text-xs outline-none focus:ring-1 focus:ring-[#409EFF] transition-all" />
+             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+             <input type="text" placeholder="搜索产品线" className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-all" />
            </div>
         </div>
         <div className="flex-1 py-2 overflow-y-auto">
@@ -201,8 +169,8 @@ export const FirmwareManagement: React.FC = () => {
               onClick={() => setActiveProductLine(line)}
               className={`w-full text-left px-6 py-3.5 text-sm transition-all ${
                 activeProductLine === line 
-                ? 'text-[#409EFF] bg-[#ECF5FF] font-bold border-r-4 border-[#409EFF]' 
-                : 'text-[#606266] hover:text-[#409EFF] hover:bg-[#F5F7FA]'
+                ? 'text-blue-600 bg-blue-50/30 font-bold border-r-4 border-blue-600' 
+                : 'text-gray-500 hover:text-blue-600 hover:bg-gray-50'
               }`}
             >
               {line}
@@ -212,10 +180,10 @@ export const FirmwareManagement: React.FC = () => {
       </div>
 
       {/* 2. FID 列表 */}
-      <div className="w-56 border-r border-[#EBEEF5] flex flex-col bg-white">
-        <div className="p-4 flex items-center justify-between border-b border-[#F5F7FA]">
-          <h3 className="font-bold text-[#303133] text-sm">固件标识 (FID)</h3>
-          <button className="p-1.5 bg-[#409EFF] text-white rounded-lg hover:bg-[#66b1ff] transition-all">
+      <div className="w-64 border-r border-gray-100 flex flex-col shrink-0 bg-white">
+        <div className="p-5 flex items-center justify-between border-b border-gray-50">
+          <h3 className="font-bold text-gray-900 text-sm">固件标识 (FID)</h3>
+          <button className="p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-sm">
             <Plus size={14} />
           </button>
         </div>
@@ -224,167 +192,160 @@ export const FirmwareManagement: React.FC = () => {
             <button
               key={fid.id}
               onClick={() => setSelectedId(fid.id)}
-              className={`w-full text-left px-6 py-5 border-b border-[#F5F7FA] text-sm transition-colors relative group ${
-                selectedId === fid.id ? 'bg-[#ECF5FF] text-[#409EFF] font-bold' : 'text-[#606266] hover:bg-[#F5F7FA]'
+              className={`w-full text-left px-6 py-5 border-b border-gray-50 text-sm transition-all relative group ${
+                selectedId === fid.id ? 'bg-blue-50/20 text-blue-600 font-bold' : 'text-gray-600 hover:bg-gray-50'
               }`}
             >
-              {fid.id}
-              {selectedId === fid.id && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#409EFF]"></div>}
+              <div className="flex items-center gap-3">
+                 <FileCode size={16} className={selectedId === fid.id ? 'text-blue-600' : 'text-gray-400'} />
+                 <span className="truncate">{fid.id}</span>
+              </div>
+              {selectedId === fid.id && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600"></div>}
             </button>
           ))}
         </div>
       </div>
 
-      {/* 3. 详情内容区 */}
+      {/* 3. 详情与版本库列表 */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#F5F7FA] overflow-y-auto">
         <div className="p-6">
-          <div className="bg-white rounded-xl shadow-sm border border-[#EBEEF5] overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             {/* Header */}
-            <div className="p-8 border-b border-[#F5F7FA]">
-              <div className="flex justify-between items-start mb-6">
+            <div className="p-8 border-b border-gray-100">
+              <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-6">
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
-                    <h1 className="text-2xl font-black text-[#303133] tracking-tight">{selectedId}</h1>
-                    <span className="px-2 py-0.5 bg-[#F4F4F5] text-[#909399] text-[10px] font-bold rounded">FID 详情</span>
+                    <h1 className="text-2xl font-black text-gray-900 tracking-tight">{selectedId}</h1>
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded">FID 详情</span>
                   </div>
-                  <div className="flex flex-wrap gap-x-10 gap-y-2 text-sm">
+                  <div className="flex flex-wrap gap-x-10 gap-y-2 text-[13px]">
                     <div className="flex gap-2">
-                      <span className="text-[#909399]">产品线:</span>
-                      <span className="text-[#303133] font-medium">IPC</span>
+                      <span className="text-gray-400">产品线:</span>
+                      <span className="text-gray-700 font-medium">{activeProductLine}</span>
                     </div>
                     <div className="flex gap-2">
-                      <span className="text-[#909399]">关联机型:</span>
-                      <span className="text-[#409EFF] cursor-pointer hover:underline font-medium">测试机型001ABC</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <span className="text-[#909399]">创建时间:</span>
-                      <span className="text-[#303133]">2026-06-01 12:06:06</span>
+                      <span className="text-gray-400">关联机型:</span>
+                      <span className="text-blue-600 cursor-pointer hover:underline font-bold">Model_X_001</span>
                     </div>
                   </div>
                 </div>
                 <div className="flex gap-3">
-                  <button className="px-4 py-2 border border-[#DCDFE6] text-[#606266] rounded-lg hover:bg-[#F5F7FA] text-sm font-medium">删除FID</button>
-                  <button 
-                    onClick={handleAddVersion}
-                    className="px-5 py-2 bg-[#409EFF] text-white rounded-lg text-sm font-bold hover:bg-[#66b1ff] flex items-center gap-2 shadow-lg shadow-blue-100 transition-all active:scale-95"
-                  >
-                    <Plus size={16} /> 新增版本
+                  <button onClick={handleAddVersion} className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 flex items-center gap-2 shadow-lg shadow-blue-100 transition-all active:scale-95">
+                    <Plus size={18} /> 新增版本
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="p-8 space-y-10">
-              {/* 最新版本 */}
+            <div className="p-8 space-y-12">
+              {/* 最新发布版本 */}
               <section className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-1 h-4 bg-[#409EFF] rounded-full"></div>
-                  <h3 className="font-bold text-[#303133]">最新发布版本</h3>
+                <div className="flex items-center gap-3">
+                  <div className="w-1 h-5 bg-green-500 rounded-full"></div>
+                  <h3 className="font-bold text-gray-900">当前线上版本</h3>
                 </div>
-                <div className="border border-[#EBEEF5] rounded-xl overflow-hidden shadow-sm">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-[#F5F7FA] border-b border-[#EBEEF5] text-[#909399]">
-                      <tr>
-                        <th className="px-6 py-4 font-bold">固件版本号</th>
-                        <th className="px-6 py-4 font-bold">下载地址</th>
-                        <th className="px-6 py-4 font-bold">文件大小 (M)</th>
-                        <th className="px-6 py-4 font-bold">APP提醒方式</th>
-                        <th className="px-6 py-4 font-bold">说明</th>
-                        <th className="px-6 py-4 font-bold">操作</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {latestVersion ? (
-                        <tr className="hover:bg-[#F5F7FA] transition-colors">
-                          <td className="px-6 py-5">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-[#303133]">{latestVersion.versionNumber}</span>
-                              <span className="px-2 py-0.5 bg-[#f0f9eb] text-[#67c23a] text-[11px] font-bold rounded border border-[#e1f3d8]">最新</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-5 text-[#409EFF] max-w-xs truncate font-mono text-xs hover:underline cursor-pointer">
-                            {latestVersion.downloadUrl}
-                          </td>
-                          <td className="px-6 py-5 text-[#303133] font-medium">{latestVersion.size} MB</td>
-                          <td className="px-6 py-5">
-                            {renderPromptTag(latestVersion.promptMethod)}
-                          </td>
-                          <td className="px-6 py-5 text-[#909399] max-w-xs truncate">{latestVersion.description}</td>
-                          <td className="px-6 py-5">
-                            <button onClick={() => handleEditVersion(latestVersion)} className="text-[#409EFF] font-bold hover:underline">详情</button>
-                          </td>
-                        </tr>
-                      ) : (
-                        <tr>
-                          <td colSpan={6} className="px-6 py-10 text-center text-[#909399]">暂无已发布版本</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                {latestVersion ? (
+                  <div className="p-6 bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 hover:border-green-200 transition-all group">
+                    <div className="flex items-center gap-6">
+                       <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center text-green-600 border border-green-100">
+                          <CheckCircle2 size={32} />
+                       </div>
+                       <div className="space-y-1">
+                          <p className="text-xl font-black text-gray-900">{latestVersion.versionNumber}</p>
+                          <p className="text-xs text-gray-400 font-medium">发布于 {latestVersion.updateTime}</p>
+                       </div>
+                    </div>
+                    <div className="flex gap-10">
+                       <div className="text-center">
+                          <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">文件大小</p>
+                          <p className="text-sm font-bold text-gray-800">{latestVersion.size} MB</p>
+                       </div>
+                       <div className="text-center">
+                          <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">提醒模式</p>
+                          <span className="px-2 py-0.5 bg-orange-50 text-orange-600 text-[10px] font-black rounded border border-orange-100">强提醒</span>
+                       </div>
+                    </div>
+                    <button 
+                      onClick={() => handleViewDetail(latestVersion)}
+                      className="px-6 py-2 border border-blue-600 rounded-lg text-sm font-bold text-blue-600 hover:bg-blue-600 hover:text-white transition-all bg-white"
+                    >
+                       查看版本详情
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-12 border-2 border-dashed border-gray-100 rounded-xl flex flex-col items-center justify-center text-gray-300">
+                     <Clock size={32} className="mb-2 opacity-20" />
+                     <p className="text-sm font-medium">当前 FID 暂无正式发布版本</p>
+                  </div>
+                )}
               </section>
 
-              {/* 历史版本 */}
+              {/* 版本库列表 */}
               <section className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-1 h-4 bg-[#E6A23C] rounded-full"></div>
-                  <h3 className="font-bold text-[#303133]">版本库管理</h3>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-1 h-5 bg-blue-600 rounded-full"></div>
+                    <h3 className="font-bold text-gray-900">版本库列表</h3>
+                  </div>
+                  <div className="text-[11px] text-gray-400 flex items-center gap-1.5">
+                    <Info size={14} />
+                    <span>草稿/测试包不计入审批流程，点击“发布”即可发起正式审批</span>
+                  </div>
                 </div>
 
-                <div className="border border-[#EBEEF5] rounded-xl overflow-hidden shadow-sm">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-[#F5F7FA] border-b border-[#EBEEF5] text-[#909399]">
-                      <tr>
-                        <th className="px-6 py-4 font-bold">固件版本号</th>
-                        <th className="px-6 py-4 font-bold">状态</th>
-                        <th className="px-6 py-4 font-bold">文件大小 (M)</th>
-                        <th className="px-6 py-4 font-bold">版本说明</th>
-                        <th className="px-6 py-4 font-bold">操作时间</th>
-                        <th className="px-6 py-4 font-bold text-right">操作</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#F5F7FA]">
-                      {historyVersions.length > 0 ? historyVersions.map(version => (
-                        <tr key={version.id} className="hover:bg-[#F5F7FA] transition-colors group">
-                          <td className="px-6 py-5">
-                            <span className="font-medium text-[#303133]">{version.versionNumber}</span>
-                          </td>
-                          <td className="px-6 py-5">
-                            {version.status === 'reviewing' ? (
-                              <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[11px] font-bold rounded flex items-center gap-1 w-fit animate-pulse">
-                                <BellRing size={10} /> 审批中...
-                              </span>
-                            ) : version.status === 'published' ? (
-                              <span className="px-2 py-0.5 bg-green-50 text-green-600 text-[11px] font-bold rounded w-fit">已发布</span>
-                            ) : (
-                              <span className="px-2 py-0.5 bg-gray-50 text-gray-400 text-[11px] font-bold rounded w-fit">草稿</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-5 text-[#606266]">{version.size} MB</td>
-                          <td className="px-6 py-5 text-[#909399] max-w-xs truncate">{version.description}</td>
-                          <td className="px-6 py-5 text-[#909399] text-xs">{version.updateTime}</td>
-                          <td className="px-6 py-5 text-right">
-                            <div className="flex items-center justify-end gap-5 text-[13px] font-bold">
-                              {version.status !== 'reviewing' && (
-                                <button 
-                                  onClick={() => handlePublishClick(version)}
-                                  className="text-[#409EFF] hover:text-[#66b1ff] transition-all flex items-center gap-1"
-                                >
-                                  发布
-                                </button>
-                              )}
-                              <button onClick={() => handleEditVersion(version)} className="text-[#606266] hover:text-[#409EFF]">编辑</button>
-                              <button onClick={() => handleDeleteVersion(version.id)} className="text-[#F56C6C] hover:text-red-700">删除</button>
-                            </div>
-                          </td>
-                        </tr>
-                      )) : (
+                <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm min-w-[800px]">
+                      <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider">
                         <tr>
-                          <td colSpan={6} className="px-6 py-10 text-center text-[#909399]">暂无版本记录</td>
+                          <th className="px-6 py-4">固件版本号</th>
+                          <th className="px-6 py-4">审批状态</th>
+                          <th className="px-6 py-4">文件大小 (M)</th>
+                          <th className="px-6 py-4">上传时间</th>
+                          <th className="px-6 py-4 text-right">操作</th>
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {historyVersions.map(version => (
+                          <tr key={version.id} className="hover:bg-gray-50/50 transition-colors group">
+                            <td className="px-6 py-5">
+                              <span className="font-mono font-bold text-gray-900">{version.versionNumber}</span>
+                            </td>
+                            <td className="px-6 py-5">
+                              {renderApprovalStatus(version.status)}
+                            </td>
+                            <td className="px-6 py-5 text-gray-600">{version.size} MB</td>
+                            <td className="px-6 py-5 text-gray-400 text-xs">{version.updateTime}</td>
+                            <td className="px-6 py-5">
+                              <div className="flex items-center justify-end gap-5">
+                                {version.status === 'draft' ? (
+                                  <button 
+                                    onClick={() => handlePublishClick(version)}
+                                    className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm shadow-blue-50 transition-all flex items-center gap-1"
+                                  >
+                                    发布
+                                  </button>
+                                ) : (
+                                  <button className="text-gray-400 text-xs font-bold cursor-default">
+                                    流程进行中
+                                  </button>
+                                )}
+                                <div className="h-4 w-px bg-gray-200"></div>
+                                <button 
+                                  onClick={() => handleViewDetail(version)}
+                                  className="text-gray-600 hover:text-blue-600 text-xs font-bold flex items-center gap-1"
+                                >
+                                  <Eye size={14} /> 详情
+                                </button>
+                                <button className="text-gray-600 hover:text-blue-600 text-xs font-bold">编辑</button>
+                                <button className="text-red-500 hover:text-red-700 text-xs font-bold">删除</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </section>
             </div>
@@ -397,7 +358,7 @@ export const FirmwareManagement: React.FC = () => {
         <PublishConfirmModal 
           version={pendingVersion.versionNumber}
           onClose={() => setShowPublishModal(false)}
-          onConfirm={(method) => handleConfirmPublish(method)}
+          onConfirm={handleConfirmPublish}
         />
       )}
 
@@ -407,6 +368,14 @@ export const FirmwareManagement: React.FC = () => {
           initialData={editingVersion}
           onClose={() => setShowFormModal(false)}
           onSubmit={handleFormSubmit}
+        />
+      )}
+
+      {showDetailModal && detailVersion && (
+        <FirmwareDetailModal 
+          version={detailVersion}
+          selectedFid={selectedId}
+          onClose={() => setShowDetailModal(false)}
         />
       )}
 

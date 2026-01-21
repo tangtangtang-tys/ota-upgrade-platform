@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   LayoutDashboard, 
   Settings, 
@@ -8,7 +8,9 @@ import {
   Bell, 
   LogOut,
   ShieldCheck,
-  ChevronRight
+  ChevronRight,
+  Menu,
+  X
 } from 'lucide-react';
 import { ViewState } from '../types';
 
@@ -19,6 +21,8 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }) => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
   const menuItems = [
     { id: '固件发布', icon: <Package size={18} />, view: 'FIRMWARE_MGT' as ViewState },
     { id: 'OTA升级', icon: <FileText size={18} />, view: 'LIST' as ViewState },
@@ -40,34 +44,36 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F5F7FA]">
-      {/* Sidebar - 亮白简约风格 */}
-      <aside className="w-64 bg-white flex flex-col border-r border-[#DCDFE6] z-20">
-        <div className="h-16 flex items-center gap-3 px-6 border-b border-[#F0F2F5]">
-          <div className="w-8 h-8 bg-[#409EFF] rounded-lg flex items-center justify-center text-white font-black shadow-md shadow-blue-100">
+      {/* Sidebar - 响应式宽度与显隐控制 */}
+      <aside className={`bg-white flex flex-col border-r border-[#DCDFE6] z-40 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-64' : 'w-0 -translate-x-full lg:w-20 lg:translate-x-0'}`}>
+        <div className={`h-16 flex items-center border-b border-[#F0F2F5] transition-all ${isSidebarOpen ? 'px-6 gap-3' : 'justify-center'}`}>
+          <div className="w-8 h-8 bg-[#409EFF] rounded-lg flex items-center justify-center text-white font-black shadow-md shrink-0">
             OTA
           </div>
-          <span className="text-lg font-bold text-[#303133] tracking-tight">管理后台</span>
+          {isSidebarOpen && <span className="text-lg font-bold text-[#303133] tracking-tight truncate">管理后台</span>}
         </div>
         
-        <nav className="flex-1 py-4 space-y-1">
+        <nav className="flex-1 py-4 space-y-1 overflow-y-auto">
           {menuItems.map((item) => {
             const isActive = currentView === item.view || (item.view === 'LIST' && currentView === 'OTA_DETAIL');
             return (
               <button
                 key={item.id}
                 onClick={() => setView(item.view)}
-                className={`w-full flex items-center justify-between px-6 py-4 text-sm transition-all group relative ${
+                title={!isSidebarOpen ? item.id : ''}
+                className={`w-full flex items-center px-6 py-4 text-sm transition-all group relative ${
                   isActive 
                     ? 'text-[#409EFF] bg-[#ECF5FF] font-semibold' 
                     : 'text-[#606266] hover:text-[#409EFF] hover:bg-[#F5F7FA]'
-                }`}
+                } ${!isSidebarOpen ? 'justify-center px-0' : 'justify-between'}`}
               >
                 <div className="flex items-center gap-3">
                   <span className={isActive ? 'text-[#409EFF]' : 'text-[#909399] group-hover:text-[#409EFF]'}>
                     {item.icon}
                   </span>
-                  {item.id}
+                  {isSidebarOpen && <span className="truncate">{item.id}</span>}
                 </div>
+                {isActive && isSidebarOpen && <ChevronRight size={14} className="text-[#409EFF]" />}
                 {isActive && <div className="absolute right-0 top-0 bottom-0 w-1 bg-[#409EFF]"></div>}
               </button>
             );
@@ -75,32 +81,39 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }
         </nav>
 
         <div className="p-4 border-t border-[#F0F2F5]">
-          <button className="w-full flex items-center gap-3 px-6 py-3 text-sm font-medium text-[#F56C6C] hover:bg-[#FEF0F0] transition-colors rounded-lg">
+          <button className={`w-full flex items-center py-3 text-sm font-medium text-[#F56C6C] hover:bg-[#FEF0F0] transition-colors rounded-lg ${isSidebarOpen ? 'px-6 gap-3' : 'justify-center px-0'}`}>
             <LogOut size={18} />
-            退出登录
+            {isSidebarOpen && <span>退出登录</span>}
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Header - 纯净白色 */}
-        <header className="h-16 bg-white border-b border-[#DCDFE6] flex items-center justify-between px-8 z-10 shadow-sm">
+      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* Header */}
+        <header className="h-16 bg-white border-b border-[#DCDFE6] flex items-center justify-between px-4 sm:px-8 z-30 shadow-sm shrink-0">
           <div className="flex items-center gap-4">
-            <h2 className="text-[15px] font-bold text-[#303133]">{getViewTitle()}</h2>
-          </div>
-          <div className="flex items-center gap-6">
-            <button className="text-[#909399] hover:text-[#409EFF] relative transition-colors">
-              <Bell size={18} />
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#F56C6C] text-white text-[9px] flex items-center justify-center rounded-full border border-white">2</span>
+            <button 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+              className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"
+            >
+              {isSidebarOpen ? <Menu size={20} /> : <Menu size={20} />}
             </button>
-            <div className="h-6 w-px bg-[#E4E7ED]"></div>
+            <h2 className="text-[15px] font-bold text-[#303133] truncate hidden sm:block">{getViewTitle()}</h2>
+          </div>
+          
+          <div className="flex items-center gap-3 sm:gap-6">
+            <button className="text-[#909399] hover:text-[#409EFF] relative transition-colors p-2">
+              <Bell size={18} />
+              <span className="absolute top-1 right-1 w-4 h-4 bg-[#F56C6C] text-white text-[9px] flex items-center justify-center rounded-full border border-white">2</span>
+            </button>
+            <div className="h-6 w-px bg-[#E4E7ED] hidden xs:block"></div>
             <div className="flex items-center gap-3">
-              <div className="text-right">
+              <div className="text-right hidden md:block">
                 <p className="text-[13px] font-bold text-[#303133]">系统管理员</p>
                 <p className="text-[11px] text-[#909399]">Admin</p>
               </div>
-              <div className="w-10 h-10 rounded-full border border-[#E4E7ED] bg-[#F5F7FA] overflow-hidden">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border border-[#E4E7ED] bg-[#F5F7FA] overflow-hidden shrink-0">
                 <img 
                   src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin&backgroundColor=b6e3f4" 
                   alt="Avatar" 
@@ -112,7 +125,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, setView }
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto relative">
           {children}
         </div>
       </main>
